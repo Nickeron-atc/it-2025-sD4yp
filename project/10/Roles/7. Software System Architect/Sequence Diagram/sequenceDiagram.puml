@@ -1,33 +1,40 @@
 @startuml
-actor Player
+title Процесс аутентификации пользователя
 
-participant "Web UI" as WebUI
-participant "Recommendation Service" as Recs
-participant "User Service" as User
-participant "Rating Service" as Rating
-participant "Game Service" as Game
-database "Database" as DB
+actor Пользователь
+participant "User Interface" as UI
+participant "CoreApp" as CoreApp
+participant "Auth Manager" as AuthManager
+database DB
 
-Player -> WebUI : request recommendations
+Пользователь -> UI : Открывает страницу входа
+Пользователь -> UI : Вводит email и пароль
+Пользователь -> UI : Нажимает «Войти»
 
-WebUI -> Recs : getRecommendations(userId)
+UI -> CoreApp : POST /api/login\nс учётными данными
+CoreApp -> AuthManager : Аутентификация пользователя
+AuthManager -> DB : Поиск пользователя по email
+DB --> AuthManager : Результат поиска
 
-Recs -> User : getUserPreferences(userId)
-User -> DB : select user preferences
-DB --> User : preferences
-User --> Recs : preferences
+alt Пользователь не найден
+    AuthManager --> CoreApp : Ошибка аутентификации
+else Пользователь найден
+    AuthManager -> AuthManager : Верификация пароля
+    alt Пароль неверен
+        AuthManager --> CoreApp : Ошибка аутентификации
+    else Пароль верен
+        AuthManager --> CoreApp : Успех аутентификации
+    end
+end
 
-Recs -> Rating : getUserRatings(userId)
-Rating -> DB : select ratings
-DB --> Rating : ratings
-Rating --> Recs : ratings
+CoreApp --> UI : Ответ сервера
 
-Recs -> Game : getGamesByGenres(preferences)
-Game -> DB : select games
-DB --> Game : games
-Game --> Recs : games
-
-Recs --> WebUI : recommended games
-WebUI --> Player : show recommendations
+alt Ошибка аутентификации
+    UI --> Пользователь : Сообщение об ошибке
+else Успешная аутентификация
+    UI -> UI : Сохранение токена
+    UI -> UI : Перенаправление
+    UI --> Пользователь : Открытие вкладки Explore
+end
 
 @enduml
